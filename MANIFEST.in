@@ -1,0 +1,6 @@
+include README.md
+include LICENSE
+include INSTALL.md
+include USAGE.md
+include requirements.txt
+recursive-include telegram_mcp_server *.py
