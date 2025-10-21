@@ -41,8 +41,15 @@ telegram-mcp-server --setup
 ### 3. 使用
 
 ```bash
-# 启动 AI 助手
-claude  # 或 codex
+# 推荐：使用免确认完整授权模式启动
+# 避免因权限确认导致 AI 助手与 Telegram 双向互动被意外打断
+# 注意：因安全机制无法在 root 身份下启动
+
+# Claude Code
+claude --permission-mode bypassPermissions
+
+# Codex
+codex --dangerously-bypass-approvals-and-sandbox
 
 # 在 AI 助手中
 > 进入无人值守模式。任务：分析项目结构
@@ -64,14 +71,16 @@ MCP 服务器 (telegram-mcp-server)
 
 ## 核心功能
 
-### MCP 工具
+### MCP 工具（8 个）
 
-- `telegram_notify` - 发送结构化通知
-- `telegram_wait_reply` - 等待用户回复
-- `telegram_unattended_mode` - 无人值守模式
-- `telegram_send_file` - 发送文件
+- `telegram_notify` - 发送结构化通知（推荐使用）
+- `telegram_wait_reply` - 等待用户回复（阻塞式轮询）
+- `telegram_unattended_mode` - 无人值守模式（智能循环）
 - `telegram_send_code` - 发送代码（带语法高亮）
-- 更多...
+- `telegram_send_image` - 发送图片
+- `telegram_send_file` - 发送文件
+- `telegram_send` - 发送自由格式消息
+- `telegram_get_context_info` - 获取会话上下文信息
 
 ### Telegram 命令
 
