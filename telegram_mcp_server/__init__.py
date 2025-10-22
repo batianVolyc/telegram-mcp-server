@@ -1,6 +1,6 @@
 """Telegram MCP Server - Remote control Claude Code via Telegram"""
 
-__version__ = "0.2.2"
+__version__ = "0.2.4"
 __author__ = "Ray Volcy"
 __license__ = "MIT"
 
