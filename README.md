@@ -143,6 +143,9 @@ claude --permission-mode bypassPermissions
 # Codex
 codex --dangerously-bypass-approvals-and-sandbox
 
+# Gemini CLI (YOLO mode - auto-approve all MCP calls)
+gemini --yolo
+
 # In the AI assistant
 > Enter unattended mode. Task: analyze project structure
 ```

@@ -238,15 +238,17 @@ uvx telegram-mcp-server@latest --setup
 ### 4. 重启 AI 工具
 
 ```bash
-# Claude Code
+# Claude Code（免确认模式）
 claude --permission-mode bypassPermissions
 
-# Codex
+# Codex（免确认模式）
 codex --dangerously-bypass-approvals-and-sandbox
 
-# Gemini CLI
-gemini
+# Gemini CLI（免确认模式，推荐）
+gemini --yolo
 ```
+
+**注意**：`--yolo` 模式会自动批准所有 MCP 工具调用，适合无人值守使用。
 
 ### 5. 测试连接
 
