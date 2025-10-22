@@ -187,9 +187,13 @@ TELEGRAM_SESSION="night-fix" claude --permission-mode bypassPermissions
 
 支持三种配置范围：
 
-- **User scope**: `~/.claude/mcp.json` - 全局配置
+**MCP 服务器配置**：
+- **User scope**: `~/.claude.json` - 全局配置
 - **Project scope**: `.mcp.json` - 团队共享
-- **Local scope**: `.claude/mcp.json` - 项目特定
+- **Local scope**: `.claude.json` - 项目特定
+
+**环境变量配置**（自动设置）：
+- `~/.claude/settings.json` - 包含 `MCP_TOOL_TIMEOUT=604800000`（7天超时）
 
 ### Codex
 

@@ -187,9 +187,13 @@ TELEGRAM_SESSION="night-fix" claude --permission-mode bypassPermissions
 
 Supports three configuration scopes:
 
-- **User scope**: `~/.claude/mcp.json` - Global config
+**MCP Server Configuration**:
+- **User scope**: `~/.claude.json` - Global config
 - **Project scope**: `.mcp.json` - Team shared
-- **Local scope**: `.claude/mcp.json` - Project specific
+- **Local scope**: `.claude.json` - Project specific
+
+**Environment Variables** (auto-configured):
+- `~/.claude/settings.json` - Contains `MCP_TOOL_TIMEOUT=604800000` (7-day timeout)
 
 ### Codex
 

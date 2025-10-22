@@ -9,7 +9,7 @@ from pathlib import Path
 
 def get_claude_config_path(scope="user"):
     """
-    Get Claude Code config path based on scope
+    Get Claude Code MCP config path based on scope
     
     Args:
         scope: "user" (default), "project", or "local"
@@ -18,13 +18,50 @@ def get_claude_config_path(scope="user"):
         Path to config file
     """
     if scope == "user":
-        return Path.home() / ".claude" / "mcp.json"
+        return Path.home() / ".claude.json"
     elif scope == "project":
         return Path.cwd() / ".mcp.json"
     elif scope == "local":
-        return Path.cwd() / ".claude" / "mcp.json"
+        return Path.cwd() / ".claude.json"
     else:
         raise ValueError(f"Invalid scope: {scope}")
+
+
+def get_claude_settings_path():
+    """Get Claude Code settings.json path (for environment variables)"""
+    return Path.home() / ".claude" / "settings.json"
+
+
+def update_claude_settings(env_vars):
+    """
+    Update Claude Code settings.json with environment variables
+    Intelligently merges with existing env configuration
+    
+    Args:
+        env_vars: Dictionary of environment variables to add/update
+    """
+    settings_path = get_claude_settings_path()
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Load existing settings or create new
+    if settings_path.exists():
+        with open(settings_path, 'r') as f:
+            settings = json.load(f)
+    else:
+        settings = {}
+    
+    # Ensure env key exists
+    if "env" not in settings:
+        settings["env"] = {}
+    
+    # Merge new environment variables
+    settings["env"].update(env_vars)
+    
+    # Save settings
+    with open(settings_path, 'w') as f:
+        json.dump(settings, f, indent=2)
+    
+    return settings_path
 
 
 def get_codex_config_path():
@@ -53,9 +90,9 @@ async def interactive_setup():
     if client_choice in ["1", "3"]:
         print()
         print("Choose configuration scope for Claude Code:")
-        print("  1. User scope (global, ~/.claude/mcp.json)")
+        print("  1. User scope (global, ~/.claude.json)")
         print("  2. Project scope (shared, .mcp.json in project root)")
-        print("  3. Local scope (project-specific, .claude/mcp.json)")
+        print("  3. Local scope (project-specific, .claude.json)")
         print()
         print("💡 Recommendation:")
         print("   - User scope: Personal use across all projects")
@@ -181,7 +218,14 @@ async def interactive_setup():
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
         
-        print(f"✅ Claude Code configuration saved to: {config_path}")
+        print(f"✅ Claude Code MCP configuration saved to: {config_path}")
+        
+        # Update settings.json with MCP_TOOL_TIMEOUT for 7-day unattended mode
+        settings_path = update_claude_settings({
+            "MCP_TOOL_TIMEOUT": "604800000"  # 7 days in milliseconds
+        })
+        print(f"✅ Claude Code settings updated: {settings_path}")
+        print("   - MCP_TOOL_TIMEOUT set to 7 days (604800000 ms)")
         
         if scope == "project":
             print("💡 Remember to commit .mcp.json to version control for team sharing")

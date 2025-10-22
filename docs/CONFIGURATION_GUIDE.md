@@ -32,14 +32,16 @@ Claude Code 支持三种配置范围：
 
 #### 1. User Scope（用户级，推荐）
 
-**位置**: `~/.claude/mcp.json`
+**MCP 配置位置**: `~/.claude.json`
+
+**环境变量配置**: `~/.claude/settings.json`
 
 **特点**:
 - 全局可用，所有项目共享
 - 个人配置，不会提交到 git
 - 适合个人使用
 
-**配置示例**:
+**MCP 配置示例** (`~/.claude.json`):
 ```json
 {
   "mcpServers": {
@@ -55,6 +57,19 @@ Claude Code 支持三种配置范围：
 }
 ```
 
+**环境变量配置** (`~/.claude/settings.json`):
+```json
+{
+  "env": {
+    "MCP_TOOL_TIMEOUT": "604800000"
+  }
+}
+```
+
+**说明**:
+- `MCP_TOOL_TIMEOUT`: MCP 工具执行超时（毫秒），设置为 7 天（604800000 ms）
+- Setup 向导会自动配置此项
+
 **使用**:
 ```bash
 # 任何目录下启动 Claude Code
@@ -64,14 +79,16 @@ claude
 
 #### 2. Project Scope（项目共享）
 
-**位置**: `.mcp.json` (项目根目录)
+**MCP 配置位置**: `.mcp.json` (项目根目录)
+
+**环境变量配置**: `~/.claude/settings.json` (用户级，不共享)
 
 **特点**:
 - 团队共享，提交到 git
 - 所有团队成员使用相同配置
 - 适合团队协作
 
-**配置示例**:
+**MCP 配置示例** (`.mcp.json`):
 ```json
 {
   "mcpServers": {
@@ -86,6 +103,10 @@ claude
   }
 }
 ```
+
+**说明**:
+- 凭据使用环境变量，不提交到 git
+- `MCP_TOOL_TIMEOUT` 在用户的 `~/.claude/settings.json` 中配置
 
 **使用**:
 ```bash
