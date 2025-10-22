@@ -129,29 +129,28 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="telegram_notify",
             description="""
-            发送结构化通知到 Telegram
+            发送简单通知到 Telegram（基础版本）
+
+            ⚠️ 推荐使用 telegram_notify_with_actions 代替此工具
+            telegram_notify_with_actions 提供动态按钮，用户体验更好
+
+            此工具适用于：
+            - 简单的状态更新（不需要用户交互）
+            - 快速通知（无需提供下一步建议）
+            - 向后兼容旧代码
 
             参数：
             - event: 事件类型（completed/error/question/progress）
-            - summary: 简短总结，必填，限制200字以内
-            - details: 详细信息，可选
-
-            最佳实践：
-            1. summary 必须简洁明了（1-2句话），说明做了什么、结果如何
-            2. 不要包含思考过程、不要包含代码片段
-            3. 需要用户决策时，清晰说明选项
+            - summary: 简短总结（必填，200字以内）
+            - details: 详细信息（可选）
 
             示例：
             telegram_notify(
                 event="completed",
-                summary="修复了 auth.py:45 的空指针异常，所有测试通过",
-                details="修改文件: auth.py, test_auth.py\\n测试: 12/12 passed"
+                summary="修复了 auth.py:45 的空指针异常，所有测试通过"
             )
 
-            telegram_notify(
-                event="question",
-                summary="发现3种修复方案：1)添加空值检查 2)使用Optional类型 3)重构整个模块。推荐方案1，是否继续？"
-            )
+            💡 更好的选择：使用 telegram_notify_with_actions 提供智能建议按钮
             """,
             inputSchema={
                 "type": "object",
@@ -177,9 +176,15 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="telegram_notify_with_actions",
             description="""
-            发送带有动态操作按钮的通知到 Telegram
+            ⭐ 推荐：发送带有动态操作按钮的智能通知到 Telegram
             
-            让你根据当前情况为用户提供智能的下一步操作建议。
+            这是 telegram_notify 的增强版本，可以根据当前情况为用户提供智能的下一步操作建议。
+            
+            优势：
+            - ✅ 提供 2-4 个智能操作按钮，用户一键执行
+            - ✅ 按钮是建议，不强制，用户可以忽略
+            - ✅ 自动添加提示："💡 这些是建议的下一步，你也可以直接发送其他指令"
+            - ✅ 即使不提供按钮（actions=[]），也可以正常使用
             
             参数：
             - event: 事件类型（completed/error/question/progress）
@@ -536,25 +541,45 @@ async def list_tools() -> list[Tool]:
             4. 收到指令后执行，重复循环
 
             ⚠️ 重要：
-            - 完成任务后必须调用 telegram_notify 发送结果
+            - 完成任务后必须调用通知工具发送结果
             - telegram_unattended_mode 本身不发送消息，只等待
             - 这样用户每次只收到任务结果，不会有重复的等待提示
 
-            📋 通知内容最佳实践：
-            ✅ 优先发送总结：
-            - "修复了 auth.py 的空指针异常，测试通过"
-            - "创建了 3 个文件：main.py, utils.py, test.py"
-            - "代码重构完成，性能提升 30%"
+            📋 推荐使用 telegram_notify_with_actions 发送结果：
+            
+            ⭐ 最佳实践（带智能按钮）：
+            telegram_notify_with_actions(
+                event="completed",
+                summary="✅ 完成代码审查\\n- 发现 3 个可优化点\\n- 代码质量：B+",
+                actions=[
+                    {"text": "💡 优化这 3 处", "action": "自动优化发现的问题"},
+                    {"text": "📊 查看详情", "action": "显示详细的优化建议"}
+                ]
+            )
+            
+            ✅ 简单通知（无按钮）：
+            telegram_notify_with_actions(
+                event="completed",
+                summary="修复了 auth.py 的空指针异常，测试通过",
+                actions=[]  # 不提供按钮
+            )
+            
+            或使用基础版本：
+            telegram_notify(
+                event="completed",
+                summary="创建了 3 个文件：main.py, utils.py, test.py"
+            )
 
-            ⚠️ 仅在必要时发送代码：
-            - 遇到无法自动修复的错误，需要展示错误代码
-            - 修复了关键 bug，展示修复前后对比
-            - 用户明确要求："查看 main.py"、"发送代码给我"
+            ⚠️ 仅在必要时发送代码/文件：
+            - 遇到无法自动修复的错误 → telegram_send_code 展示错误代码
+            - 用户明确要求 → telegram_send_file 发送文件
+            - 修复关键 bug → telegram_send_code 展示修复对比
 
             🎯 智能判断示例：
-            - 创建新文件 → telegram_notify("创建了 config.json")
-            - 修复 bug → telegram_notify("修复了登录异常") + 如果复杂就 telegram_send_code
-            - 用户问"文件内容是什么" → telegram_send_file
+            - 任务完成 → telegram_notify_with_actions（带下一步建议按钮）
+            - 遇到错误 → telegram_notify_with_actions（带修复方案按钮）
+            - 需要决策 → telegram_notify_with_actions（带选项按钮）
+            - 简单更新 → telegram_notify（无按钮）
 
             退出方式：
             - Telegram 发送 "退出" 或 "exit"
