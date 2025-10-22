@@ -54,6 +54,8 @@ pip install telegram-mcp-server
 
 ### 2. 配置
 
+#### 方式 A：自动配置（推荐）
+
 ```bash
 telegram-mcp-server --setup
 ```
@@ -62,6 +64,43 @@ telegram-mcp-server --setup
 - 创建 Telegram Bot
 - 获取凭据
 - 自动配置 AI 助手
+
+#### 方式 B：使用 `mcp add` 命令手动添加
+
+如果你已经有 Telegram Bot Token 和 Chat ID，可以使用 `mcp add` 命令快速添加：
+
+**Claude Code**:
+```bash
+claude mcp add \
+  --transport stdio \
+  telegram \
+  --env TELEGRAM_BOT_TOKEN=你的TOKEN \
+  --env TELEGRAM_CHAT_ID=你的CHAT_ID \
+  -- \
+  uvx telegram-mcp-server
+```
+
+**Codex**:
+```bash
+codex mcp add telegram \
+  --env TELEGRAM_BOT_TOKEN=你的TOKEN \
+  --env TELEGRAM_CHAT_ID=你的CHAT_ID \
+  -- \
+  npx -y telegram-mcp-server
+```
+
+**Gemini CLI**:
+```bash
+gemini mcp add \
+  -t stdio \
+  -e TELEGRAM_BOT_TOKEN=你的TOKEN \
+  -e TELEGRAM_CHAT_ID=你的CHAT_ID \
+  telegram \
+  uvx \
+  telegram-mcp-server
+```
+
+> 💡 **提示**：将 `你的TOKEN` 和 `你的CHAT_ID` 替换为你的实际值
 
 ### 3. 使用
 

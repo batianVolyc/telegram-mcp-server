@@ -54,6 +54,8 @@ pip install telegram-mcp-server
 
 ### 2. Setup
 
+#### Option A: Automatic Setup (Recommended)
+
 ```bash
 telegram-mcp-server --setup
 ```
@@ -62,6 +64,43 @@ Interactive wizard will help you:
 - Create Telegram Bot
 - Get credentials
 - Auto-configure AI assistant
+
+#### Option B: Manual Setup with `mcp add`
+
+If you already have your Telegram Bot Token and Chat ID, you can quickly add using the `mcp add` command:
+
+**Claude Code**:
+```bash
+claude mcp add \
+  --transport stdio \
+  telegram \
+  --env TELEGRAM_BOT_TOKEN=YOUR_TOKEN_HERE \
+  --env TELEGRAM_CHAT_ID=YOUR_CHAT_ID_HERE \
+  -- \
+  uvx telegram-mcp-server
+```
+
+**Codex**:
+```bash
+codex mcp add telegram \
+  --env TELEGRAM_BOT_TOKEN=YOUR_TOKEN_HERE \
+  --env TELEGRAM_CHAT_ID=YOUR_CHAT_ID_HERE \
+  -- \
+  npx -y telegram-mcp-server
+```
+
+**Gemini CLI**:
+```bash
+gemini mcp add \
+  -t stdio \
+  -e TELEGRAM_BOT_TOKEN=YOUR_TOKEN_HERE \
+  -e TELEGRAM_CHAT_ID=YOUR_CHAT_ID_HERE \
+  telegram \
+  uvx \
+  telegram-mcp-server
+```
+
+> 💡 **Tip**: Replace `YOUR_TOKEN_HERE` and `YOUR_CHAT_ID_HERE` with your actual values
 
 ### 3. Usage
 
