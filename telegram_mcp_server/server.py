@@ -92,17 +92,20 @@ async def send_telegram_message(chat_id: str, message: str, parse_mode: str = "M
         async with httpx.AsyncClient() as client:
             response = await client.post(url, json=payload, timeout=10.0)
             response.raise_for_status()
-    except Exception as e:
-        logger.warning(f"Failed to send with {parse_mode}, retrying as plain text: {e}")
-        try:
-            # Retry without parse_mode
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 400 and parse_mode:
+            # Markdown parsing failed, retry without parse_mode
+            logger.warning(f"Markdown parsing failed (400 Bad Request), retrying as plain text")
             payload.pop("parse_mode", None)
             async with httpx.AsyncClient() as client:
                 response = await client.post(url, json=payload, timeout=10.0)
                 response.raise_for_status()
-        except Exception as e2:
-            logger.error(f"Failed to send Telegram message: {e2}")
+        else:
+            logger.error(f"Failed to send Telegram message: {e}")
             raise
+    except Exception as e:
+        logger.error(f"Failed to send Telegram message: {e}")
+        raise
 
 
 def get_poll_interval(elapsed_seconds: float) -> int:
@@ -129,9 +132,14 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="telegram_notify",
             description="""
-            发送简单通知到 Telegram（基础版本）
-
-            ⚠️ 推荐使用 telegram_notify_with_actions 代替此工具
+            ⚠️ 这是 Telegram MCP Server 的通知工具
+            用于向用户的 Telegram Bot 发送任务进度通知
+            
+            ❌ 这不是通用的 Telegram 消息发送工具
+            ❌ 不能发送消息到任意 Telegram 用户或群组
+            ✅ 只能发送通知到配置的 Telegram Bot（用户会在 Telegram 中收到）
+            
+            💡 推荐使用 telegram_notify_with_actions 代替此工具
             telegram_notify_with_actions 提供动态按钮，用户体验更好
 
             此工具适用于：
@@ -177,6 +185,13 @@ async def list_tools() -> list[Tool]:
             name="telegram_notify_with_actions",
             description="""
             ⭐ 推荐：发送带有动态操作按钮的智能通知到 Telegram
+            
+            ⚠️ 这是 Telegram MCP Server 的通知工具（增强版）
+            用于向用户的 Telegram Bot 发送任务进度通知，并提供智能操作建议
+            
+            ❌ 这不是通用的 Telegram 消息发送工具
+            ❌ 不能发送消息到任意 Telegram 用户或群组
+            ✅ 只能发送通知到配置的 Telegram Bot（用户会在 Telegram 中收到）
             
             这是 telegram_notify 的增强版本，可以根据当前情况为用户提供智能的下一步操作建议。
             
@@ -529,16 +544,31 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="telegram_unattended_mode",
             description="""
-            进入无人值守模式 - 智能远程任务循环
+            ⚠️ 这是 Telegram MCP Server 的无人值守模式工具
+            用于等待用户通过 Telegram Bot 发送的下一步指令
+            
+            ❌ 这不是通用的 Telegram 操作工具
+            ❌ 不用于发送 Telegram 消息（使用 telegram_notify 系列工具）
+            ❌ 不用于管理 Telegram 群组或频道
+            
+            ✅ 正确用途：远程任务循环 - 等待用户通过 Telegram 发送指令
 
             工作流程：
             1. 执行当前任务
-            2. 根据情况智能选择通知方式：
-               - 默认：使用 telegram_notify 发送总结
-               - 遇到关键问题/错误：使用 telegram_send_code 展示问题代码
-               - 用户明确要求：使用 telegram_send_file 发送文件
-            3. 调用 telegram_unattended_mode 等待下一步指令（静默等待，不发送额外提示）
+            2. 使用 telegram_notify_with_actions 发送结果（带智能按钮）
+            3. 调用 telegram_unattended_mode 等待用户通过 Telegram 发送的下一步指令
             4. 收到指令后执行，重复循环
+            
+            示例场景：
+            用户说："进入无人值守模式，任务：分析项目结构"
+            
+            你应该：
+            1. 分析项目结构
+            2. 调用 telegram_notify_with_actions 发送分析结果
+            3. 调用 telegram_unattended_mode 等待下一步指令
+            4. 用户在 Telegram 中发送"优化性能"
+            5. 你收到指令，执行优化
+            6. 重复步骤 2-5
 
             ⚠️ 重要：
             - 完成任务后必须调用通知工具发送结果
@@ -820,8 +850,19 @@ async def handle_telegram_notify_with_actions(session, arguments: dict) -> list[
             payload["reply_markup"] = {"inline_keyboard": keyboard}
         
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=10.0)
-            response.raise_for_status()
+            try:
+                # Try with Markdown first
+                response = await client.post(url, json=payload, timeout=10.0)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 400:
+                    # Markdown parsing failed, retry without parse_mode
+                    logger.warning(f"Markdown parsing failed, retrying as plain text")
+                    payload.pop("parse_mode", None)
+                    response = await client.post(url, json=payload, timeout=10.0)
+                    response.raise_for_status()
+                else:
+                    raise
         
         return [TextContent(
             type="text",
