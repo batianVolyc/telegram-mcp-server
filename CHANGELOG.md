@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2024-10-22
+
+### Fixed
+- **Telegram Markdown Parsing** - Auto-fallback to plain text on 400 errors
+  - Added automatic retry mechanism when Markdown parsing fails
+  - Handles special characters (•, ✓, etc.) gracefully
+  - Guarantees message delivery even if formatting fails
+  - Affects `telegram_notify` and `telegram_notify_with_actions`
+
+### Added
+- **update_uvx_cache.sh** - Script to update uvx cached code
+- **UPDATE_GUIDE.md** - Guide for updating uvx installations
+- **CORRECT_USAGE.md** - Clarified tool usage to prevent AI confusion
+- Tool descriptions now explicitly warn about correct usage context
+
+### Improved
+- Error handling in `send_telegram_message()` and `handle_telegram_notify_with_actions()`
+- Documentation moved to `docs/` directory for better organization
+- Cleaner project structure
+
 ## [0.2.2] - 2024-10-22
 
 ### Added
