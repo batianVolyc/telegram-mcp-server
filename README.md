@@ -40,13 +40,45 @@ Through the MCP (Model Context Protocol), this project allows you to:
 - 🎯 **Multi-session Management** - Manage multiple projects simultaneously
 - 🤖 **Universal Support** - Works with both Claude Code and Codex
 
-## Quick Start
+## ⚡ Quick Start (New Users)
 
-### 1. Installation
+### Installation & Setup (One Command)
 
 ```bash
-# Recommended: using uv
-uv tool install telegram-mcp-server
+# Use uvx (recommended, no installation needed, always latest version)
+uvx --refresh telegram-mcp-server@latest --setup
+```
+
+This will:
+1. ✅ Download the latest version from PyPI
+2. ✅ Guide you through Telegram Bot setup
+3. ✅ Auto-configure Claude Code / Codex / Gemini CLI
+4. ✅ Test the connection
+
+**That's it!** 🎉
+
+### Verify Installation
+
+```bash
+# Check version (should be 0.2.1 or higher)
+uvx telegram-mcp-server@latest --version
+```
+
+**Expected output**:
+```
+telegram-mcp-server version 0.2.1
+https://github.com/batianVolyc/telegram-mcp-server
+```
+
+---
+
+## 📖 Detailed Installation
+
+### Method 1: Using uvx (Recommended)
+
+```bash
+# Always use latest version
+uvx telegram-mcp-server@latest --setup
 
 # Or using pip
 pip install telegram-mcp-server
