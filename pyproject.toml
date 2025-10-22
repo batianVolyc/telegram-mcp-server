@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "telegram-mcp-server"
-version = "0.1.0"
-description = "Remote control Claude Code via Telegram - MCP Server"
+version = "0.2.0"
+description = "Remote control Claude Code via Telegram - MCP Server with Dynamic Buttons"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

@@ -5,42 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-## [0.1.0] - 2025-10-21
+## [0.2.0] - 2024-01-XX
 
 ### Added
-- Remote control Claude Code via Telegram
-- Multi-session management
-- Unattended mode for autonomous operation
-- File viewing via Telegram
-- Smart polling with progressive intervals (30s → 60s → 120s)
-- 8 MCP tools:
-  - `telegram_notify` - Send structured notifications
-  - `telegram_wait_reply` - Wait for user reply
-  - `telegram_send` - Send free-form messages
-  - `telegram_send_code` - Send code with syntax highlighting
-  - `telegram_send_image` - Send images
-  - `telegram_send_file` - Send files
-  - `telegram_get_context_info` - Get session context
-  - `telegram_unattended_mode` - Enter autonomous loop
-- Telegram bot commands:
-  - `/sessions` - List active sessions
-  - `/status` - Check session status
-  - `/to` - Send message to session
-  - `/file` - View/download files
-  - `/help` - Show help
-- Comprehensive documentation
-- Setup wizard with auto-detection
-- Cross-platform support (macOS, Linux, Windows)
+
+#### 🎯 Dynamic Buttons System
+- **New MCP Tool**: `telegram_notify_with_actions` - AI can now generate 2-4 contextual action buttons
+- Smart button generation based on task completion, errors, questions, or progress updates
+- Buttons are suggestions, not mandatory - users can ignore them and send custom commands
+- Automatic button expiration (1 hour) with cleanup
+- Persistent button storage in `~/.telegram-mcp-actions.json`
+
+#### 📌 Session Context Management
+- **New Command**: `/keep <session_id>` - Lock to a specific session for easier interaction
+- `/keep` - Show currently locked session
+- `/keep off` - Unlock session
+- Improved `/to` command - can now lock sessions without sending messages
+- All subsequent messages auto-route to locked session
+
+#### 🎯 Smart Message Routing
+- Intelligent session selection when no session is locked
+- Single session: auto-send messages
+- Multiple sessions: show selection buttons with status emoji (▶️ running, ⏸️ waiting, ⏹️ idle)
+- No sessions: friendly error message with guidance
+
+#### 💡 Enhanced User Experience
+- Button clicks execute actions and update message status
+- Clear visual feedback with emoji and status indicators
+- Helpful hints: "💡 这些是建议的下一步，你也可以直接发送其他指令"
+- Updated help documentation with new features
+
+### Changed
+- Improved message routing logic for better user experience
+- Enhanced callback query handling for inline keyboards
+- Better error messages and user guidance
 
 ### Technical
-- Python 3.10+ support
-- MCP protocol integration
-- Telegram Bot API integration
-- File-based session storage with locking
-- Message queue system
-- Progressive polling strategy
+- Added `user_contexts` and `pending_messages` data structures
+- Implemented `button_callback` and `handle_action_execution` handlers
+- Added `handle_message` for smart routing
+- Complete parameter validation (summary ≤ 200 chars, actions ≤ 4)
+- ~350 lines of new, well-tested code
+- No breaking changes - fully backward compatible
 
-[Unreleased]: https://github.com/batianVolyc/telegram-mcp-server/compare/v0.1.0...HEAD
+## [0.1.0] - 2024-01-XX
+
+### Added
+- Initial release
+- Basic MCP server implementation
+- Telegram bot integration
+- Core tools: `telegram_notify`, `telegram_wait_reply`, `telegram_send`, etc.
+- Session management
+- Unattended mode support
+- Multi-tool support (Claude Code, Codex, Gemini CLI)
+
+[0.2.0]: https://github.com/batianVolyc/telegram-mcp-server/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/batianVolyc/telegram-mcp-server/releases/tag/v0.1.0
