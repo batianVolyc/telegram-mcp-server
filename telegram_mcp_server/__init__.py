@@ -1,7 +1,7 @@
 """Telegram MCP Server - Remote control Claude Code via Telegram"""
 
-__version__ = "0.1.0"
-__author__ = "Your Name"
+__version__ = "0.2.1"
+__author__ = "Ray Volcy"
 __license__ = "MIT"
 
 from . import server, bot, config, session, message_queue

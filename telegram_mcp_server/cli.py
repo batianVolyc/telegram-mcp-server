@@ -515,7 +515,11 @@ def main():
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         
-        if arg in ["--setup", "-s", "setup"]:
+        if arg in ["--version", "-v", "version"]:
+            from . import __version__
+            print(f"telegram-mcp-server version {__version__}")
+            print("https://github.com/batianVolyc/telegram-mcp-server")
+        elif arg in ["--setup", "-s", "setup"]:
             asyncio.run(interactive_setup())
         elif arg in ["--config", "-c", "config"]:
             show_config()
@@ -524,6 +528,7 @@ def main():
             print()
             print("Usage:")
             print("  telegram-mcp-server              Run MCP server")
+            print("  telegram-mcp-server --version    Show version")
             print("  telegram-mcp-server --setup      Interactive setup wizard")
             print("  telegram-mcp-server --config     Show current configuration")
             print("  telegram-mcp-server --help       Show this help")
