@@ -7,8 +7,13 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 
 from .session import registry
 from .message_queue import message_queue
+from . import config
 
 logger = logging.getLogger(__name__)
+
+# User context management
+user_contexts = {}  # {user_id: {"active_session": session_id}}
+pending_messages = {}  # {user_id: message_text}
 
 
 def format_time_ago(iso_time: str) -> str:
@@ -89,29 +94,51 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_to(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Send message to specific session"""
-    if len(context.args) < 2:
-        await update.message.reply_text("用法: /to <session_id> <消息>")
+    """Send message to specific session (improved with session locking)"""
+    user_id = update.effective_user.id
+    
+    if not context.args:
+        await update.message.reply_text("用法: /to <session_id> [消息]")
         return
-
+    
     session_id = context.args[0]
-    message = " ".join(context.args[1:])
-
+    
+    # Check if session exists
     if not registry.exists(session_id):
         await update.message.reply_text(f"❌ 会话 `{session_id}` 不存在", parse_mode="Markdown")
         return
-
-    # Add message to queue
-    message_queue.push(session_id, message)
-
-    # Silent confirmation (no message) - user will see Claude's response directly
-    # Only send confirmation if session is not waiting (might be delayed)
-    session = registry.get(session_id)
-    if not session.pending_reply:
+    
+    # If no message, set as active session
+    if len(context.args) == 1:
+        if user_id not in user_contexts:
+            user_contexts[user_id] = {}
+        
+        user_contexts[user_id]['active_session'] = session_id
+        
         await update.message.reply_text(
-            f"✅ 已加入队列 `{session_id}` (会话当前不在等待状态)",
+            f"📌 已切换到会话: `{session_id}`\n\n"
+            f"✅ 后续消息将自动发送到此会话\n"
+            f"💡 使用 `/keep off` 取消锁定",
             parse_mode="Markdown"
         )
+        return
+    
+    # Has message, send and set as active session
+    message = " ".join(context.args[1:])
+    
+    message_queue.push(session_id, message)
+    
+    # Also set as active session
+    if user_id not in user_contexts:
+        user_contexts[user_id] = {}
+    user_contexts[user_id]['active_session'] = session_id
+    
+    await update.message.reply_text(
+        f"✅ 消息已发送到 `{session_id}`\n\n"
+        f"💬 {message}\n\n"
+        f"📌 已锁定此会话，后续消息将自动发送到这里",
+        parse_mode="Markdown"
+    )
 
 
 async def cmd_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -304,6 +331,175 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"❌ 处理图片失败: {str(e)}")
 
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle non-command messages with smart routing"""
+    user_id = update.effective_user.id
+    message_text = update.message.text
+    
+    # Check if user has active session context
+    if user_id in user_contexts and 'active_session' in user_contexts[user_id]:
+        # Has active session, send directly
+        session_id = user_contexts[user_id]['active_session']
+        await send_to_session(update, session_id, message_text)
+        return
+    
+    # No active session, check how many sessions exist
+    sessions = registry.list_all()
+    
+    if not sessions:
+        await update.message.reply_text(
+            "❌ 没有活跃会话\n\n"
+            "请先在 AI 编程工具中启动会话，或使用命令：\n"
+            "• `/sessions` - 查看会话\n"
+            "• `/help` - 查看帮助"
+        )
+        return
+    
+    if len(sessions) == 1:
+        # Only one session, send directly
+        session_id = list(sessions.keys())[0]
+        await send_to_session(update, session_id, message_text)
+        return
+    
+    # Multiple sessions, show selection buttons
+    pending_messages[user_id] = message_text
+    
+    keyboard = []
+    for sid, session in sessions.items():
+        status_emoji = {
+            "running": "▶️",
+            "waiting": "⏸️",
+            "idle": "⏹️"
+        }.get(session.status, "❓")
+        
+        button_text = f"{status_emoji} {sid}"
+        keyboard.append([InlineKeyboardButton(
+            button_text,
+            callback_data=f"send_to:{sid}"
+        )])
+    
+    # Add cancel button
+    keyboard.append([InlineKeyboardButton("❌ 取消", callback_data="cancel")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    # Truncate message for display
+    display_message = message_text[:100] + "..." if len(message_text) > 100 else message_text
+    
+    await update.message.reply_text(
+        f"📨 你的消息：\n\n{display_message}\n\n"
+        f"请选择要发送到的会话：",
+        reply_markup=reply_markup
+    )
+
+
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle button callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = update.effective_user.id
+    data = query.data
+    
+    if data == "cancel":
+        await query.edit_message_text("❌ 已取消")
+        pending_messages.pop(user_id, None)
+        return
+    
+    if data.startswith("send_to:"):
+        session_id = data.split(":", 1)[1]
+        message_text = pending_messages.get(user_id)
+        
+        if not message_text:
+            await query.edit_message_text("❌ 消息已过期，请重新发送")
+            return
+        
+        # Send message
+        if not registry.exists(session_id):
+            await query.edit_message_text(f"❌ 会话 `{session_id}` 不存在", parse_mode="Markdown")
+            return
+        
+        message_queue.push(session_id, message_text)
+        await query.edit_message_text(
+            f"✅ 消息已发送到 `{session_id}`\n\n"
+            f"💬 {message_text}",
+            parse_mode="Markdown"
+        )
+        
+        pending_messages.pop(user_id, None)
+        return
+    
+    if data.startswith("exec:"):
+        # Handle action button clicks
+        action_id = data.split(":", 1)[1]
+        await handle_action_execution(query, action_id)
+        return
+
+
+async def handle_action_execution(query, action_id: str):
+    """Handle execution of action buttons"""
+    try:
+        import json
+        from pathlib import Path
+        
+        # Load actions from file
+        actions_file = Path.home() / ".telegram-mcp-actions.json"
+        
+        if not actions_file.exists():
+            await query.edit_message_text("❌ 操作已过期")
+            return
+        
+        with open(actions_file, 'r') as f:
+            actions = json.load(f)
+        
+        if action_id not in actions:
+            await query.edit_message_text("❌ 操作已过期")
+            return
+        
+        action_data = actions[action_id]
+        session_id = action_data["session_id"]
+        command = action_data["command"]
+        
+        # Check if session still exists
+        if not registry.exists(session_id):
+            await query.edit_message_text(f"❌ 会话 `{session_id}` 不存在", parse_mode="Markdown")
+            return
+        
+        # Send command to session
+        message_queue.push(session_id, command)
+        
+        # Update message to show execution
+        await query.edit_message_text(
+            f"✅ 已执行操作\n\n"
+            f"📤 发送到: `{session_id}`\n"
+            f"💬 指令: {command}",
+            parse_mode="Markdown"
+        )
+        
+        # Remove executed action
+        actions.pop(action_id, None)
+        with open(actions_file, 'w') as f:
+            json.dump(actions, f, indent=2)
+            
+    except Exception as e:
+        logger.error(f"Failed to execute action {action_id}: {e}")
+        await query.edit_message_text(f"❌ 执行失败: {str(e)}")
+
+
+async def send_to_session(update: Update, session_id: str, message: str):
+    """Send message to session"""
+    if not registry.exists(session_id):
+        await update.message.reply_text(f"❌ 会话 `{session_id}` 不存在", parse_mode="Markdown")
+        return
+    
+    message_queue.push(session_id, message)
+    await update.message.reply_text(
+        f"✅ 消息已发送到 `{session_id}`\n\n"
+        f"💬 {message}",
+        parse_mode="Markdown"
+    )
+
+
 async def handle_plain_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle plain text messages (auto-route to waiting sessions)"""
     message = update.message.text
@@ -468,6 +664,55 @@ async def cmd_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def cmd_keep(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Keep sending messages to a specific session"""
+    user_id = update.effective_user.id
+    
+    if not context.args:
+        # Show current active session
+        if user_id in user_contexts and 'active_session' in user_contexts[user_id]:
+            session_id = user_contexts[user_id]['active_session']
+            await update.message.reply_text(
+                f"📌 当前活跃会话: `{session_id}`\n\n"
+                f"使用 `/keep off` 取消锁定\n"
+                f"使用 `/keep <session_id>` 切换会话",
+                parse_mode="Markdown"
+            )
+        else:
+            await update.message.reply_text(
+                "❌ 没有活跃会话\n\n"
+                "使用 `/keep <session_id>` 设置活跃会话"
+            )
+        return
+    
+    session_id = context.args[0]
+    
+    # Special command: cancel lock
+    if session_id.lower() in ['off', 'cancel', 'clear']:
+        if user_id in user_contexts:
+            user_contexts[user_id].pop('active_session', None)
+        await update.message.reply_text("✅ 已取消会话锁定")
+        return
+    
+    # Check if session exists
+    if not registry.exists(session_id):
+        await update.message.reply_text(f"❌ 会话 `{session_id}` 不存在", parse_mode="Markdown")
+        return
+    
+    # Set active session
+    if user_id not in user_contexts:
+        user_contexts[user_id] = {}
+    
+    user_contexts[user_id]['active_session'] = session_id
+    
+    await update.message.reply_text(
+        f"📌 已锁定会话: `{session_id}`\n\n"
+        f"✅ 后续消息将自动发送到此会话\n"
+        f"💡 使用 `/keep off` 取消锁定",
+        parse_mode="Markdown"
+    )
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show help message"""
     help_text = """🤖 Telegram MCP Server 使用帮助
@@ -478,8 +723,10 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
 /delete <session_id> - 删除会话（发送退出命令）
 
 💬 消息发送
-/to <session_id> <消息> - 向指定会话发送消息
-直接发送消息 - 自动发送到唯一等待的会话
+/to <session_id> [消息] - 向指定会话发送消息（或锁定会话）
+/keep <session_id> - 锁定会话（后续消息自动发送）
+/keep off - 取消会话锁定
+直接发送消息 - 自动发送到锁定的会话或唯一等待的会话
 
 📄 文件操作
 /file <session_id> <file_path> - 查看文件内容（带语法高亮）
@@ -510,22 +757,23 @@ def setup_bot(token: str) -> Application:
     application.add_handler(CommandHandler("sessions", cmd_sessions))
     application.add_handler(CommandHandler("status", cmd_status))
     application.add_handler(CommandHandler("to", cmd_to))
+    application.add_handler(CommandHandler("keep", cmd_keep))
     application.add_handler(CommandHandler("file", cmd_file))
     application.add_handler(CommandHandler("delete", cmd_delete))
     application.add_handler(CommandHandler("help", cmd_help))
     application.add_handler(CommandHandler("start", cmd_help))
 
-    # Add callback query handler (for inline keyboard buttons)
-    application.add_handler(CallbackQueryHandler(handle_callback))
+    # Add callback query handler (for inline keyboard buttons) - must be before other handlers
+    application.add_handler(CallbackQueryHandler(button_callback))
 
     # Add photo handler
     application.add_handler(
         MessageHandler(filters.PHOTO, handle_photo)
     )
 
-    # Add plain message handler
+    # Add smart message handler (with session context and selection)
     application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_plain_message)
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
 
     return application

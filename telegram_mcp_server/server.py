@@ -615,6 +615,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
     if name == "telegram_notify":
         return await handle_telegram_notify(session, arguments)
+    elif name == "telegram_notify_with_actions":
+        return await handle_telegram_notify_with_actions(session, arguments)
     elif name == "telegram_wait_reply":
         return await handle_telegram_wait_reply(session, arguments)
     elif name == "telegram_send":
@@ -672,6 +674,136 @@ async def handle_telegram_notify(session, arguments: dict) -> list[TextContent]:
             text=f"✅ 已发送通知到 Telegram (会话: {session.session_id})"
         )]
     except Exception as e:
+        return [TextContent(
+            type="text",
+            text=f"❌ 发送失败: {str(e)}"
+        )]
+
+
+async def handle_telegram_notify_with_actions(session, arguments: dict) -> list[TextContent]:
+    """Handle telegram_notify_with_actions tool"""
+    event = arguments.get("event")
+    summary = arguments.get("summary", "")
+    details = arguments.get("details", "")
+    actions = arguments.get("actions", [])
+    
+    # Validate summary length
+    if len(summary) > 200:
+        return [TextContent(
+            type="text",
+            text="错误: summary 过长，请精炼到200字以内"
+        )]
+    
+    # Validate actions count
+    if len(actions) > 4:
+        return [TextContent(
+            type="text",
+            text="错误: 最多只能提供 4 个操作按钮"
+        )]
+    
+    # Format message
+    emoji_map = {
+        "completed": "✅",
+        "error": "❌",
+        "question": "❓",
+        "progress": "⏳"
+    }
+    
+    message = f"{emoji_map.get(event, '🔔')} [`{session.session_id}`]\n{summary}"
+    
+    if details:
+        message += f"\n\n━━━━━━━━━━━━\n📝 详情:\n{details}"
+    
+    # Add hint about buttons
+    if actions:
+        message += "\n\n💡 这些是建议的下一步，你也可以直接发送其他指令"
+    
+    # Update session
+    session.last_message = summary
+    session.update_activity()
+    registry.update_session(session)
+    
+    # Send to Telegram with buttons
+    try:
+        import httpx
+        import json
+        import hashlib
+        import time
+        from pathlib import Path
+        
+        # Create inline keyboard
+        keyboard = []
+        action_store = {}
+        
+        for idx, action in enumerate(actions):
+            emoji_prefix = action.get("emoji", "")
+            text = f"{emoji_prefix} {action['text']}" if emoji_prefix else action['text']
+            
+            # Generate unique action ID
+            action_id = hashlib.md5(
+                f"{session.session_id}:{time.time()}:{idx}".encode()
+            ).hexdigest()[:16]
+            
+            # Store action command
+            action_store[action_id] = {
+                "session_id": session.session_id,
+                "command": action["action"],
+                "timestamp": time.time()
+            }
+            
+            keyboard.append([{
+                "text": text,
+                "callback_data": f"exec:{action_id}"
+            }])
+        
+        # Save action store to a temporary file
+        if action_store:
+            actions_file = Path.home() / ".telegram-mcp-actions.json"
+            
+            # Load existing actions
+            existing_actions = {}
+            if actions_file.exists():
+                try:
+                    with open(actions_file, 'r') as f:
+                        existing_actions = json.load(f)
+                except Exception:
+                    pass
+            
+            # Merge and save
+            existing_actions.update(action_store)
+            
+            # Clean old actions (older than 1 hour)
+            current_time = time.time()
+            existing_actions = {
+                k: v for k, v in existing_actions.items()
+                if current_time - v.get("timestamp", 0) < 3600
+            }
+            
+            with open(actions_file, 'w') as f:
+                json.dump(existing_actions, f, indent=2)
+        
+        # Send message with inline keyboard
+        url = f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/sendMessage"
+        
+        payload = {
+            "chat_id": session.chat_id,
+            "text": message,
+            "parse_mode": "Markdown"
+        }
+        
+        if keyboard:
+            payload["reply_markup"] = {"inline_keyboard": keyboard}
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=10.0)
+            response.raise_for_status()
+        
+        return [TextContent(
+            type="text",
+            text=f"✅ 已发送通知到 Telegram (会话: {session.session_id}, 包含 {len(actions)} 个操作按钮)"
+        )]
+    except Exception as e:
+        logger.error(f"Failed to send notification with actions: {e}")
         return [TextContent(
             type="text",
             text=f"❌ 发送失败: {str(e)}"
