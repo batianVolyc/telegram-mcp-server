@@ -91,13 +91,9 @@ codex mcp add telegram \
 
 **Gemini CLI**:
 ```bash
-gemini mcp add \
-  -t stdio \
+gemini mcp add telegram uvx telegram-mcp-server \
   -e TELEGRAM_BOT_TOKEN=你的TOKEN \
-  -e TELEGRAM_CHAT_ID=你的CHAT_ID \
-  telegram \
-  uvx \
-  telegram-mcp-server
+  -e TELEGRAM_CHAT_ID=你的CHAT_ID
 ```
 
 > 💡 **提示**：将 `你的TOKEN` 和 `你的CHAT_ID` 替换为你的实际值

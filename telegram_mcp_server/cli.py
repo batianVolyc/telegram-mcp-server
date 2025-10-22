@@ -69,25 +69,78 @@ def get_codex_config_path():
     return Path.home() / ".codex" / "config.toml"
 
 
+def get_gemini_config_path(scope="user"):
+    """
+    Get Gemini CLI config path based on scope
+    
+    Args:
+        scope: "user" (default) or "project"
+    
+    Returns:
+        Path to config file
+    """
+    if scope == "user":
+        return Path.home() / ".gemini" / "settings.json"
+    elif scope == "project":
+        return Path.cwd() / ".gemini" / "settings.json"
+    else:
+        raise ValueError(f"Invalid scope: {scope}")
+
+
+def check_tool_installed(tool_name):
+    """
+    Check if a CLI tool is installed
+    
+    Args:
+        tool_name: Name of the tool (claude, codex, gemini)
+    
+    Returns:
+        bool: True if installed, False otherwise
+    """
+    import shutil
+    return shutil.which(tool_name) is not None
+
+
 async def interactive_setup():
     """Interactive setup wizard"""
     print("🤖 Telegram MCP Server - Setup Wizard")
     print("=" * 50)
     print()
     
-    # Step 0: Choose client and scope
-    print("Step 0: Choose Configuration")
+    # Step 0: Detect installed tools and choose configuration
+    print("Step 0: Detect and Choose Configuration")
     print("-" * 50)
-    print("Which AI coding assistant are you using?")
+    
+    # Detect installed tools
+    installed_tools = []
+    if check_tool_installed("claude"):
+        installed_tools.append("Claude Code")
+    if check_tool_installed("codex"):
+        installed_tools.append("Codex")
+    if check_tool_installed("gemini"):
+        installed_tools.append("Gemini CLI")
+    
+    if installed_tools:
+        print(f"✅ Detected installed tools: {', '.join(installed_tools)}")
+        print()
+    
+    print("Which AI coding assistant do you want to configure?")
     print("  1. Claude Code (Anthropic)")
     print("  2. Codex (OpenAI)")
-    print("  3. Both")
+    print("  3. Gemini CLI (Google)")
+    print("  4. Multiple tools")
     print()
     
     client_choice = input("Enter choice [1]: ").strip() or "1"
     
-    scope = None
-    if client_choice in ["1", "3"]:
+    # Determine which tools to configure
+    configure_claude = client_choice in ["1", "4"]
+    configure_codex = client_choice in ["2", "4"]
+    configure_gemini = client_choice in ["3", "4"]
+    
+    # Get scope for Claude Code
+    claude_scope = None
+    if configure_claude:
         print()
         print("Choose configuration scope for Claude Code:")
         print("  1. User scope (global, ~/.claude.json)")
@@ -102,9 +155,22 @@ async def interactive_setup():
         
         scope_choice = input("Enter choice [1]: ").strip() or "1"
         scope_map = {"1": "user", "2": "project", "3": "local"}
-        scope = scope_map.get(scope_choice, "user")
+        claude_scope = scope_map.get(scope_choice, "user")
     
-    if client_choice == "2":
+    # Get scope for Gemini CLI
+    gemini_scope = None
+    if configure_gemini:
+        print()
+        print("Choose configuration scope for Gemini CLI:")
+        print("  1. User scope (global, ~/.gemini/settings.json)")
+        print("  2. Project scope (.gemini/settings.json in project root)")
+        print()
+        
+        scope_choice = input("Enter choice [1]: ").strip() or "1"
+        scope_map = {"1": "user", "2": "project"}
+        gemini_scope = scope_map.get(scope_choice, "user")
+    
+    if configure_codex:
         print()
         print("ℹ️  Note: Codex only supports global configuration (~/.codex/config.toml)")
         print("   All projects will share the same MCP configuration.")
@@ -189,8 +255,8 @@ async def interactive_setup():
         args = ["-m", "telegram_mcp_server"]
     
     # Configure Claude Code
-    if client_choice in ["1", "3"]:
-        config_path = get_claude_config_path(scope)
+    if configure_claude:
+        config_path = get_claude_config_path(claude_scope)
         config_path.parent.mkdir(parents=True, exist_ok=True)
         
         # Load existing config or create new
@@ -227,11 +293,59 @@ async def interactive_setup():
         print(f"✅ Claude Code settings updated: {settings_path}")
         print("   - MCP_TOOL_TIMEOUT set to 7 days (604800000 ms)")
         
-        if scope == "project":
+        if claude_scope == "project":
             print("💡 Remember to commit .mcp.json to version control for team sharing")
     
+    # Configure Gemini CLI
+    if configure_gemini:
+        gemini_config_path = get_gemini_config_path(gemini_scope)
+        
+        # Only create if tool is installed or user confirms
+        if not check_tool_installed("gemini"):
+            print()
+            print("⚠️  Gemini CLI not detected on your system")
+            create_anyway = input("Create configuration anyway? (y/N): ").strip().lower()
+            if create_anyway != 'y':
+                print("⏭️  Skipping Gemini CLI configuration")
+                configure_gemini = False
+        
+        if configure_gemini:
+            gemini_config_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Load existing config or create new
+            if gemini_config_path.exists():
+                with open(gemini_config_path, 'r') as f:
+                    gemini_config = json.load(f)
+            else:
+                gemini_config = {}
+            
+            # Ensure mcpServers key exists
+            if "mcpServers" not in gemini_config:
+                gemini_config["mcpServers"] = {}
+            
+            # Add telegram server config
+            gemini_config["mcpServers"]["telegram"] = {
+                "command": command,
+                "args": args,
+                "env": {
+                    "TELEGRAM_BOT_TOKEN": bot_token,
+                    "TELEGRAM_CHAT_ID": chat_id
+                },
+                "timeout": 604800000  # 7 days in milliseconds
+            }
+            
+            # Save config
+            with open(gemini_config_path, 'w') as f:
+                json.dump(gemini_config, f, indent=2)
+            
+            print(f"✅ Gemini CLI configuration saved to: {gemini_config_path}")
+            print("   - Timeout set to 7 days (604800000 ms)")
+            
+            if gemini_scope == "project":
+                print("💡 Remember to commit .gemini/settings.json to version control for team sharing")
+    
     # Configure Codex
-    if client_choice in ["2", "3"]:
+    if configure_codex:
         try:
             import toml
         except ImportError:
@@ -294,11 +408,14 @@ async def interactive_setup():
     print("Next steps:")
     print("  1. Start your AI assistant:")
     
-    if client_choice in ["1", "3"]:
-        print("     - Claude Code: claude")
+    if configure_claude:
+        print("     - Claude Code: claude --permission-mode bypassPermissions")
     
-    if client_choice in ["2", "3"]:
-        print("     - Codex: codex")
+    if configure_codex:
+        print("     - Codex: codex --dangerously-bypass-approvals-and-sandbox")
+    
+    if configure_gemini:
+        print("     - Gemini CLI: gemini")
     
     print()
     print("  2. Check MCP connection: /mcp")
@@ -308,6 +425,40 @@ async def interactive_setup():
     print("    - Send: /help")
     print("    - Try: 'Enter unattended mode. Task: analyze project'")
     print()
+    
+    # Show mcp add commands for other tools
+    print()
+    print("=" * 50)
+    print("📋 Or add to other tools using mcp add commands:")
+    print()
+    
+    if not configure_claude:
+        print("Claude Code:")
+        print(f"  claude mcp add \\")
+        print(f"    --transport stdio \\")
+        print(f"    telegram \\")
+        print(f"    --env TELEGRAM_BOT_TOKEN={bot_token} \\")
+        print(f"    --env TELEGRAM_CHAT_ID={chat_id} \\")
+        print(f"    -- \\")
+        print(f"    uvx telegram-mcp-server")
+        print()
+    
+    if not configure_codex:
+        print("Codex:")
+        print(f"  codex mcp add telegram \\")
+        print(f"    --env TELEGRAM_BOT_TOKEN={bot_token} \\")
+        print(f"    --env TELEGRAM_CHAT_ID={chat_id} \\")
+        print(f"    -- \\")
+        print(f"    npx -y telegram-mcp-server")
+        print()
+    
+    if not configure_gemini:
+        print("Gemini CLI:")
+        print(f"  gemini mcp add telegram uvx telegram-mcp-server \\")
+        print(f"    -e TELEGRAM_BOT_TOKEN={bot_token} \\")
+        print(f"    -e TELEGRAM_CHAT_ID={chat_id}")
+        print()
+    
     print("Documentation: https://github.com/batianVolyc/telegram-mcp-server")
 
 

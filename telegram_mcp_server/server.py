@@ -175,6 +175,120 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="telegram_notify_with_actions",
+            description="""
+            发送带有动态操作按钮的通知到 Telegram
+            
+            让你根据当前情况为用户提供智能的下一步操作建议。
+            
+            参数：
+            - event: 事件类型（completed/error/question/progress）
+            - summary: 简短总结（必填，200字以内）
+            - details: 详细信息（可选，建议填写）
+            - actions: 操作按钮列表（可选，最多 4 个）
+            
+            actions 格式：
+            [
+                {
+                    "text": "按钮显示文字",
+                    "action": "用户点击后发送的指令",
+                    "emoji": "可选的 emoji"
+                }
+            ]
+            
+            使用场景：
+            
+            1. 任务完成 - 提供下一步建议：
+            telegram_notify_with_actions(
+                event="completed",
+                summary="✅ 完成用户认证模块\\n- 实现登录/注册\\n- JWT验证\\n- 15个测试通过",
+                details="修改文件：auth.py, user.py\\n测试覆盖率：95%",
+                actions=[
+                    {"text": "实现权限管理", "action": "继续实现权限管理模块，包括角色和权限分配", "emoji": "💡"},
+                    {"text": "优化性能", "action": "优化数据库查询性能，添加缓存层", "emoji": "⚡"}
+                ]
+            )
+            
+            2. 遇到错误 - 提供解决方案：
+            telegram_notify_with_actions(
+                event="error",
+                summary="❌ 导入错误\\nModuleNotFoundError: No module named 'jwt'",
+                details="缺少 PyJWT 依赖包",
+                actions=[
+                    {"text": "自动修复", "action": "运行 pip install PyJWT 并重试", "emoji": "🔧"},
+                    {"text": "添加到依赖", "action": "将 PyJWT 添加到 requirements.txt", "emoji": "📝"},
+                    {"text": "显示错误代码", "action": "显示出错位置的代码", "emoji": "🔍"}
+                ]
+            )
+            
+            3. 需要决策 - 提供选项：
+            telegram_notify_with_actions(
+                event="question",
+                summary="❓ 数据库选择\\n需要选择数据库方案",
+                details="方案A：PostgreSQL - 功能强大\\n方案B：SQLite - 简单轻量",
+                actions=[
+                    {"text": "PostgreSQL（推荐）", "action": "使用 PostgreSQL，我会配置 docker-compose", "emoji": "1️⃣"},
+                    {"text": "SQLite", "action": "使用 SQLite，适合小型项目", "emoji": "2️⃣"}
+                ]
+            )
+            
+            按钮设计原则：
+            - 明确具体："💡 优化这 3 处性能瓶颈" 而不是 "优化"
+            - 标记推荐：用 💡 标记推荐选项，但不强迫用户选择
+            - 数量适中：最多 4 个按钮，避免选择困难
+            - 可选性：用户可以忽略按钮，直接发送其他指令
+            
+            注意：
+            - 按钮是建议，不是强制选择
+            - 如果没有明确的下一步，可以不提供按钮（actions=[]）
+            - 消息末尾会自动添加提示："💡 这些是建议的下一步，你也可以直接发送其他指令"
+            - 简单确认或自动进行的过程不需要按钮
+            """,
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "event": {
+                        "type": "string",
+                        "enum": ["completed", "error", "question", "progress"],
+                        "description": "事件类型"
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "简短总结（必填，200字以内）",
+                        "maxLength": 200
+                    },
+                    "details": {
+                        "type": "string",
+                        "description": "详细信息（可选，建议填写）"
+                    },
+                    "actions": {
+                        "type": "array",
+                        "description": "操作按钮列表（可选，最多 4 个）",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string",
+                                    "description": "按钮显示文字"
+                                },
+                                "action": {
+                                    "type": "string",
+                                    "description": "用户点击后发送的指令"
+                                },
+                                "emoji": {
+                                    "type": "string",
+                                    "description": "可选的 emoji"
+                                }
+                            },
+                            "required": ["text", "action"]
+                        },
+                        "maxItems": 4
+                    }
+                },
+                "required": ["event", "summary"]
+            }
+        ),
+        Tool(
             name="telegram_wait_reply",
             description="""
             等待用户回复（阻塞式轮询）
