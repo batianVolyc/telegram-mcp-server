@@ -5,7 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2024-01-XX
+## [0.2.2] - 2024-10-22
+
+### Added
+- **TOOLS_GUIDE.md** - Comprehensive tool usage guide with decision tree
+- **GEMINI_TROUBLESHOOTING.md** - Complete Gemini CLI troubleshooting guide
+- **fix_gemini_timeout.sh** - Script to fix Gemini timeout configuration
+
+### Changed
+- **Tool Descriptions** - Clarified relationship between tools
+  - `telegram_notify` marked as basic version
+  - `telegram_notify_with_actions` emphasized as recommended tool (⭐)
+  - `telegram_unattended_mode` updated to recommend using `_with_actions`
+- **Documentation** - Added `gemini --yolo` to all startup guides
+- **Best Practices** - Updated recommendations for tool usage ratios
+
+### Improved
+- Tool selection guidance with decision tree
+- Gemini CLI support and troubleshooting
+- Documentation clarity and completeness
+
+## [0.2.1] - 2024-10-22
+
+### Added
+- **--version flag** - Added version display to CLI
+- **VERSION_CHECK.md** - Comprehensive version checking guide
+- **QUICK_VERSION_CHECK.md** - Quick version verification methods
+
+### Fixed
+- Version display in help text
+- uvx caching issues with `@latest` suffix
+
+## [0.2.0] - 2024-10-22
 
 ### Added
 
